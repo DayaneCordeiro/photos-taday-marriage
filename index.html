@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compartilhe suas Fotos</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212; /* Dark Mode */
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 400px;
+            width: 100%;
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        p {
+            font-size: 14px;
+            color: #a0a0a0;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        .upload-label {
+            display: block;
+            background: #ffffff;
+            color: #121212;
+            padding: 16px 24px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+        }
+        .upload-label:active {
+            transform: scale(0.98);
+            background-color: #e0e0e0;
+        }
+        #file-input {
+            display: none;
+        }
+        .status-container {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #333333;
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 15px;
+            display: none;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4caf50;
+            width: 0%;
+            transition: width 0.4s ease-in-out; /* Transição suave de movimento */
+        }
+        .success-msg { color: #4caf50; font-weight: 500; }
+        .error-msg { color: #f44336; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Eternize nosso dia 📸</h1>
+        <p>Clique no botão abaixo para abrir sua galeria e enviar as fotos do nosso casamento direto para o nosso álbum!</p>
+        
+        <label for="file-input" class="upload-label">
+            Enviar Fotos
+        </label>
+        <input type="file" id="file-input" accept="image/*" multiple>
+
+        <div class="status-container">
+            <div id="status-text"></div>
+            <div class="progress-bar" id="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw0Pb2y-nYFpPc8C7urFETQPk9UMfaH5hZXTbBjbKAkFc8ZLKgfn-DCBUVJs7OUKRBN/exec";
+
+        const fileInput = document.getElementById('file-input');
+        const statusText = document.getElementById('status-text');
+        const progressBar = document.getElementById('progress-bar');
+        const progressFill = document.getElementById('progress-fill');
+
+        fileInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (files.length === 0) return;
+
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+
+            let uploadedCount = 0;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                statusText.innerHTML = `Enviando foto ${i + 1} de ${files.length}...`;
+
+                try {
+                    const base64Data = await convertToBase64(file);
+                    
+                    // Enviamos como texto puro contendo o JSON estruturado
+                    await fetch(WEB_APP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'text/plain'
+                        },
+                        body: JSON.stringify({
+                            file: base64Data.split(',')[1],
+                            name: `Casamento_${Date.now()}_${file.name}`,
+                            type: file.type
+                        })
+                    });
+
+                    uploadedCount++;
+                    
+                    // Atualiza a barrinha por etapas (25%, 50%...) de forma limpa
+                    const percent = Math.round((uploadedCount / files.length) * 100);
+                    progressFill.style.width = `${percent}%`;
+
+                } catch (error) {
+                    console.error("Erro no envio:", error);
+                }
+            }
+
+            statusText.innerHTML = `<span class="success-msg">🎉 ${uploadedCount} foto(s) enviadas com sucesso! Obrigado!</span>`;
+            fileInput.value = ''; 
+            setTimeout(() => { progressBar.style.display = 'none'; }, 5000);
+        });
+
+        function convertToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+    </script>
+</body>
+</html>
