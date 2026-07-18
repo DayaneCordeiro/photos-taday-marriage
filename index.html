@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compartilhe suas Fotos</title>
+    <title>Compartilhe suas Fotos e Vídeos</title>
     <style>
         * {
             box-sizing: border-box;
@@ -12,7 +12,7 @@
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #121212; /* Dark Mode */
+            background-color: #121212; /* Dark Mode minimalista */
             color: #e0e0e0;
             display: flex;
             flex-direction: column;
@@ -42,6 +42,7 @@
             margin-bottom: 30px;
             line-height: 1.5;
         }
+        /* Botão principal */
         .upload-label {
             display: block;
             background: #ffffff;
@@ -59,12 +60,22 @@
             transform: scale(0.98);
             background-color: #e0e0e0;
         }
+        /* Classe aplicada dinamicamente para bloquear o botão */
+        .upload-disabled {
+            background-color: #555555 !important;
+            color: #888888 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important; /* Desativa cliques no mobile */
+            transform: none !important;
+            box-shadow: none !important;
+        }
         #file-input {
             display: none;
         }
         .status-container {
             margin-top: 15px;
             font-size: 14px;
+            line-height: 1.6;
         }
         .progress-bar {
             width: 100%;
@@ -79,7 +90,7 @@
             height: 100%;
             background-color: #4caf50;
             width: 0%;
-            transition: width 0.4s ease-in-out; /* Transição suave de movimento */
+            transition: width 0.4s ease-in-out;
         }
         .success-msg { color: #4caf50; font-weight: 500; }
         .error-msg { color: #f44336; font-weight: 500; }
@@ -89,12 +100,14 @@
 
     <div class="container">
         <h1>Eternize nosso dia 📸</h1>
-        <p>Clique no botão abaixo para abrir sua galeria e enviar as fotos do nosso casamento direto para o nosso álbum!</p>
+        <p>Clique no botão abaixo para abrir sua galeria e enviar as fotos e vídeos do nosso casamento direto para o nosso álbum!</p>
         
+        <!-- O botão visual que o usuário clica -->
         <label for="file-input" class="upload-label">
-            Enviar Fotos
+            Enviar arquivos
         </label>
-        <input type="file" id="file-input" accept="image/*" multiple>
+        <!-- Input oculto configurado para aceitar imagens, vídeos e múltipla seleção -->
+        <input type="file" id="file-input" accept="image/*,video/*" multiple>
 
         <div class="status-container">
             <div id="status-text"></div>
@@ -105,30 +118,45 @@
     </div>
 
     <script>
+        // Link direto do seu Web App do Google Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw0Pb2y-nYFpPc8C7urFETQPk9UMfaH5hZXTbBjbKAkFc8ZLKgfn-DCBUVJs7OUKRBN/exec";
 
         const fileInput = document.getElementById('file-input');
         const statusText = document.getElementById('status-text');
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
+        const uploadBtn = document.querySelector('.upload-label');
 
         fileInput.addEventListener('change', async (e) => {
             const files = e.target.files;
             if (files.length === 0) return;
 
+            // 1. Bloqueia o botão e o input para evitar cliques repetidos
+            uploadBtn.classList.add('upload-disabled');
+            fileInput.disabled = true;
+
             progressBar.style.display = 'block';
             progressFill.style.width = '0%';
 
             let uploadedCount = 0;
+            let skippedCount = 0;
 
+            // 2. Loop para processar e enviar um arquivo por vez
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                statusText.innerHTML = `Enviando foto ${i + 1} de ${files.length}...`;
+                const maxFileSize = 50 * 1024 * 1024; // Trava de segurança de 50MB
+                
+                if (file.size > maxFileSize) {
+                    skippedCount++;
+                    continue; // Pula este arquivo pesado e vai para o próximo
+                }
+
+                statusText.innerHTML = `Enviando arquivo ${i + 1} de ${files.length}...`;
 
                 try {
                     const base64Data = await convertToBase64(file);
                     
-                    // Enviamos como texto puro contendo o JSON estruturado
+                    // Envia os dados como string simples em lote
                     await fetch(WEB_APP_URL, {
                         method: 'POST',
                         mode: 'no-cors',
@@ -144,7 +172,7 @@
 
                     uploadedCount++;
                     
-                    // Atualiza a barrinha por etapas (25%, 50%...) de forma limpa
+                    // Faz o preenchimento da barra andar proporcionalmente por arquivo concluído
                     const percent = Math.round((uploadedCount / files.length) * 100);
                     progressFill.style.width = `${percent}%`;
 
@@ -153,11 +181,23 @@
                 }
             }
 
-            statusText.innerHTML = `<span class="success-msg">🎉 ${uploadedCount} foto(s) enviadas com sucesso! Obrigado!</span>`;
+            // 3. Exibe o relatório final de sucesso ou aviso de arquivos barrados
+            if (skippedCount > 0) {
+                statusText.innerHTML = `<span class="success-msg">🎉 ${uploadedCount} arquivo(s) enviados!</span><br><span class="error-msg">⚠️ ${skippedCount} arquivo(s) ignorados por passarem de 50MB.</span>`;
+            } else {
+                statusText.innerHTML = `<span class="success-msg">🎉 ${uploadedCount} arquivo(s) enviados com sucesso! Obrigado!</span>`;
+            }
+            
+            // 4. Desbloqueia o botão e limpa o campo para novos uploads
             fileInput.value = ''; 
-            setTimeout(() => { progressBar.style.display = 'none'; }, 5000);
+            fileInput.disabled = false;
+            uploadBtn.classList.remove('upload-disabled');
+
+            // Esconde a barra após 6 segundos
+            setTimeout(() => { progressBar.style.display = 'none'; }, 6000);
         });
 
+        // Converte o arquivo selecionado na galeria para string Base64 legível pelo Google
         function convertToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
